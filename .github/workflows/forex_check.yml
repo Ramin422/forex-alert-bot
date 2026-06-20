@@ -1,0 +1,26 @@
+name: Forex Signal Check
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # ทุก 15 นาที
+  workflow_dispatch:           # รันมือได้
+
+jobs:
+  check-signals:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+        
+      - name: Run signal check
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          TRADINGVIEW_SECRET: ${{ secrets.TRADINGVIEW_SECRET }}
+        run: python price_fetcher.py --once    # รันครั้งเดียวแล้วจบ

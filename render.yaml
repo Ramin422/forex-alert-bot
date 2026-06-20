@@ -1,12 +1,10 @@
 services:
-  - type: web
+  - type: worker          # เปลี่ยนจาก web เป็น worker
     name: forex-alert-bot
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    startCommand: python price_fetcher.py
     envVars:
-      - key: DISCORD_BOT_TOKEN
-        sync: false
       - key: DISCORD_WEBHOOK_URL
         sync: false
       - key: TRADINGVIEW_SECRET
