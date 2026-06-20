@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: forex-alert-bot
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: DISCORD_BOT_TOKEN
+        sync: false
+      - key: DISCORD_WEBHOOK_URL
+        sync: false
+      - key: TRADINGVIEW_SECRET
+        sync: false
