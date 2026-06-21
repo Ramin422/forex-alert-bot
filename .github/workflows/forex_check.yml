@@ -19,8 +19,11 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
         
-      - name: Run signal check
+         - name: Run signal check
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           TRADINGVIEW_SECRET: ${{ secrets.TRADINGVIEW_SECRET }}
-        run: python price_fetcher.py --once    # รันครั้งเดียวแล้วจบ
+          ALPHA_VANTAGE_KEY: ${{ secrets.ALPHA_VANTAGE_KEY }}
+        run: python price_fetcher.py --once
+      
+      
