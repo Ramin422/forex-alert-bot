@@ -1,10 +1,10 @@
 import requests
 import os
-import sys
+import time
 from signal_analyzer import analyze_engulfing_signal
 from bot import send_signal_to_discord
 
-ALPHA_KEY = os.getenv("ALPHA_VANTAGE_KEY")
+TWELVE_KEY = os.getenv("TWELVE_DATA_KEY")
 
 PAIR_SYMBOLS = {
     "USDJPY": "USD/JPY",
@@ -12,55 +12,47 @@ PAIR_SYMBOLS = {
     "GBPJPY": "GBP/JPY",
 }
 
-def get_candles(from_symbol: str, to_symbol: str):
-    """ดึงข้อมูลแท่งเทียน 15 นาทีจาก Alpha Vantage"""
-    url = "https://www.alphavantage.co/query"
+def get_candles(symbol: str):
+    """ดึงแท่งเทียน 15 นาทีจาก Twelve Data"""
+    url = "https://api.twelvedata.com/time_series"
     params = {
-        "function": "FX_INTRADAY",
-        "from_symbol": from_symbol,
-        "to_symbol": to_symbol,
-        "interval": "15min",
-        "outputsize": "compact",
-        "apikey": ALPHA_KEY,
+        "symbol":     symbol,
+        "interval":   "15min",
+        "outputsize": 5,
+        "apikey":     TWELVE_KEY,
     }
     response = requests.get(url, params=params)
     data = response.json()
 
-    key = "Time Series FX (15min)"
-    if key not in data:
-        print(f"❌ API Error for {from_symbol}/{to_symbol}: {data.get('Note') or data.get('Information') or data}")
+    if data.get("status") == "error":
+        print(f"❌ API Error for {symbol}: {data.get('message')}")
         return None
 
-    # แปลงเป็น list เรียงตามเวลา (ใหม่ → เก่า)
     candles = []
-    for timestamp, values in data[key].items():
+    for bar in data.get("values", []):
         candles.append({
-            "time": timestamp,
-            "open":  float(values["1. open"]),
-            "high":  float(values["2. high"]),
-            "low":   float(values["3. low"]),
-            "close": float(values["4. close"]),
+            "open":  float(bar["open"]),
+            "high":  float(bar["high"]),
+            "low":   float(bar["low"]),
+            "close": float(bar["close"]),
         })
-    return candles  # index 0 = ล่าสุด
+    return candles  # index 0 = แท่งล่าสุด
 
 def check_engulfing(candles):
-    """เช็ค Engulfing จาก 2 แท่งล่าสุด"""
     if not candles or len(candles) < 2:
         return None
 
-    curr = candles[0]   # แท่งล่าสุด
-    prev = candles[1]   # แท่งก่อนหน้า
+    curr = candles[0]
+    prev = candles[1]
 
     curr_body = curr["close"] - curr["open"]
     prev_body = prev["close"] - prev["open"]
 
-    # Bullish Engulfing
     if (prev_body < 0 and curr_body > 0 and
         curr["open"] < prev["close"] and
         curr["close"] > prev["open"]):
         return "bullish_engulfing"
 
-    # Bearish Engulfing
     if (prev_body > 0 and curr_body < 0 and
         curr["open"] > prev["close"] and
         curr["close"] < prev["open"]):
@@ -72,25 +64,24 @@ def run_check():
     print("🔍 Checking pairs...")
 
     for pair, symbol in PAIR_SYMBOLS.items():
-        from_sym, to_sym = symbol.split("/")
         try:
-            candles = get_candles(from_sym, to_sym)
+            candles = get_candles(symbol)
             if not candles:
                 print(f"⚠️ {pair}: Could not fetch data")
                 continue
 
             candle_type = check_engulfing(candles)
-            curr = candles[0]
-            prev = candles[1]
 
             if candle_type:
+                curr = candles[0]
+                prev = candles[1]
                 data = {
-                    "pair": pair,
+                    "pair":       pair,
                     "candle_type": candle_type,
-                    "close": curr["close"],
-                    "open":  curr["open"],
-                    "high":  curr["high"],
-                    "low":   curr["low"],
+                    "close":      curr["close"],
+                    "open":       curr["open"],
+                    "high":       curr["high"],
+                    "low":        curr["low"],
                     "prev_close": prev["close"],
                     "prev_open":  prev["open"],
                 }
@@ -102,6 +93,8 @@ def run_check():
                     print(f"⚠️ {pair}: Engulfing found but no S/R confluence")
             else:
                 print(f"➖ {pair}: No signal")
+
+            time.sleep(1)  # หน่วง 1 วิ ป้องกัน rate limit
 
         except Exception as e:
             print(f"❌ Error {pair}: {e}")
